@@ -1,0 +1,6 @@
+[gce_instances_ips]
+35.200.175.240
+35.200.138.87
+[local]
+localhost ansible_connection=local
+

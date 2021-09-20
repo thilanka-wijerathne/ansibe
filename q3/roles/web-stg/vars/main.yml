@@ -1,0 +1,16 @@
+---
+# vars file for web-stg
+vm_count: 2
+instances: "{{ range(1, vm_count + 1) | list }}"
+vm_prefix: "virtual-machine"
+gcp_project: eminent-cycle-319923
+gcp_auth_kind: "service_account_file"
+auth_kind: serviceaccount
+credentials_file: eminent-cycle-319923-ea1639502ee8.json
+zone: "asia-south1-c"
+region: "asia-south1"
+machine_type: "e2-small"
+image: "projects/ubuntu-os-pro-cloud/global/images/ubuntu-pro-1804-bionic-v20210720"
+name_zonea: myinstance1
+name_zoneb: myinstance2
+

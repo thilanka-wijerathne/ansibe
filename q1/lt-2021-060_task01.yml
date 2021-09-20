@@ -1,0 +1,125 @@
+---
+# compute-video-demo-ansible
+- name: Create Compute Engine instances
+  hosts: local
+  gather_facts: False
+  vars:
+    vm_count: 2
+    instances: "{{ range(1, vm_count + 1) | list }}"
+    name_zonea: myinstance1
+    name_zoneb: myinstance2
+    vm_prefix: "virtual-machine"
+    gcp_project: eminent-cycle-319923
+    gcp_auth_kind: "service_account_file"
+    auth_kind: serviceaccount
+    credentials_file: eminent-cycle-319923-ea1639502ee8.json
+    zone: "asia-south1-c"
+    region: "asia-south1"
+    machine_type: "e2-small"
+    image: "projects/ubuntu-os-pro-cloud/global/images/ubuntu-pro-1804-bionic-v20210720"
+  tasks:
+    - name: Create an IP address for first instance
+      gcp_compute_address:
+        name: "{{ name_zonea }}-ip"
+        region: "{{ region }}"
+        project: "{{ gcp_project }}"
+        service_account_file: "{{ credentials_file }}"
+        auth_kind: "{{ auth_kind }}"
+      register: gcea_ip
+    - name: Bring up the first instance in the first zone.
+      gcp_compute_instance:
+        name: "{{ name_zonea }}"
+        machine_type: "{{ machine_type }}"
+        disks:
+          - auto_delete: true
+            boot: true
+            initialize_params:
+              disk_size_gb: 30
+              source_image: "{{ image }}"
+        network_interfaces:
+          - access_configs:
+              - name: External NAT
+                nat_ip: "{{ gcea_ip }}"
+                type: ONE_TO_ONE_NAT
+        tags:
+          items:
+            - http-server
+            - https-server
+        zone: "{{ zone }}"
+        project: "{{ gcp_project }}"
+        service_account_file: "{{ credentials_file }}"
+        auth_kind: "{{ auth_kind }}"
+      register: gcea
+    - name: Create an IP address for second instance
+      gcp_compute_address:
+        name: "{{ name_zoneb }}-ip"
+        region: "{{ region }}"
+        project: "{{ gcp_project }}"
+        service_account_file: "{{ credentials_file }}"
+        auth_kind: "{{ auth_kind }}"
+      register: gceb_ip
+    - name: Bring up the instance in the second zone.
+      gcp_compute_instance:
+        name: "{{ name_zoneb }}"
+        machine_type: "{{ machine_type }}"
+        disks:
+          - auto_delete: true
+            boot: true
+            initialize_params:
+              disk_size_gb: 30
+              source_image: "{{ image }}"
+        network_interfaces:
+          - access_configs:
+              - name: External NAT
+                nat_ip: "{{ gceb_ip }}"
+                type: ONE_TO_ONE_NAT
+        tags:
+          items:
+            - http-server
+            - https-server
+        zone: "{{ zone }}"
+        project: "{{ gcp_project }}"
+        service_account_file: "{{ credentials_file }}"
+        auth_kind: "{{ auth_kind }}"
+      register: gceb
+  post_tasks:
+    - name: Wait for SSH for instances in first zone
+      wait_for: delay=1 host={{ gcea_ip.address }} port=22 state=started timeout=30
+    - name: Save host data for first zone
+      add_host: hostname={{ gcea_ip.address }} groupname=gce_instances_ips
+    - name: Wait for SSH for instances in second zone
+      wait_for: delay=1 host={{ gceb_ip.address }} port=22 state=started timeout=30
+    - name: Save host data for second zone
+      add_host: hostname={{ gceb_ip.address }} groupname=gce_instances_ips
+
+- name: Install modules
+  hosts: gce_instances_ips
+  vars:
+    host_key_checking: False
+  tasks:
+    - name: install apache
+      apt:
+        name: apache2
+        state: latest 
+    
+    - name: start the service
+      service:
+        name: apache2
+        state: started
+        enabled: true
+
+- name: Install modules
+  hosts: gce_instances_ips
+  tasks:
+    - name: copy files
+      template:
+        src: html.j2
+        dest: /var/www/html/index.html
+      notify: restart apache
+
+  handlers:
+    - name: restart apache
+      service:
+        name: apache2
+        state: restarted
+
