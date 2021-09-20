@@ -2,17 +2,17 @@
 - name: create and VMs on gcp
   hosts: local 
   vars:
-    vm_name: myinstance1
+    vm_name: myinstance2
     hostname_change: false
     #new_hostname: false
   roles:
     - web-stg
 
-- name: configure VMs
+- name: configure VMs and update
   hosts: gce_instances_ips
   vars:
-    vm_name: myinstance1
+    vm_name: myinstance2
     hostname_change: true
-    new_hostname: '1-060-webserver2'
+    new_hostname: 'LT-2021-060-webserver2'
   roles:
     - web-stg
